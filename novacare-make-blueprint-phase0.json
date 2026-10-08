@@ -1,0 +1,343 @@
+{
+  "name": "Integration Webhooks, Supabase",
+  "flow": [
+    {
+      "id": 2,
+      "mapper": {},
+      "module": "gateway:CustomWebHook",
+      "version": 1,
+      "metadata": {
+        "restore": {
+          "parameters": {
+            "hook": {
+              "data": {
+                "editable": "true"
+              },
+              "label": "NovaCare Webflow Intake"
+            }
+          }
+        },
+        "designer": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "parameters": {
+        "hook": 2706022,
+        "maxResults": 1
+      }
+    },
+    {
+      "id": 3,
+      "mapper": {
+        "url": "/rest/v1/patients",
+        "method": "POST",
+        "headers": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Prefer",
+            "value": "return=representation,resolution=merge-duplicates"
+          }
+        ],
+        "qs": [
+          {
+            "key": "on_conflict",
+            "value": "email"
+          }
+        ],
+        "body": [
+          {
+            "full_name": "{{2.payload.data.patient_name}}",
+            "email": "{{lower(trim(2.payload.data.patient_email))}}",
+            "phone": "{{2.payload.data.patient_phone}}",
+            "state": "{{2.payload.data.patient_state}}"
+          }
+        ]
+      },
+      "module": "supabase:makeAnApiCall",
+      "version": 1,
+      "metadata": {
+        "designer": {
+          "x": 300,
+          "y": 0
+        },
+        "restore": {
+          "parameters": {
+            "__IMTCONN__": {
+              "data": {
+                "scoped": "true",
+                "connection": "supabase"
+              },
+              "label": "Phoebe's Supabase connection"
+            }
+          }
+        }
+      },
+      "parameters": {
+        "__IMTCONN__": 10503596
+      },
+      "filter": {
+        "name": "Valid email address",
+        "conditions": [
+          [
+            {
+              "a": "{{2.payload.data.patient_email}}",
+              "o": "text:pattern",
+              "b": "^[^@\\s]+@[^@\\s]+\\.[A-Za-z]{2,}$"
+            }
+          ]
+        ]
+      }
+    },
+    {
+      "id": 4,
+      "mapper": {
+        "table": "appointments",
+        "status": "pending",
+        "patient_id": "{{3.body[1].id}}",
+        "service_type": "{{ifempty(2.payload.data.service_type; \"General Consultation\")}}"
+      },
+      "module": "supabase:upsertARecord",
+      "version": 1,
+      "metadata": {
+        "restore": {
+          "expect": {
+            "table": {
+              "mode": "chose",
+              "label": "appointments",
+              "nested": [
+                {
+                  "help": "Defaults to gen_random_uuid(). Note:\nThis is a Primary Key.<pk/>",
+                  "name": "id",
+                  "type": "text",
+                  "label": "id",
+                  "options": null,
+                  "required": false
+                },
+                {
+                  "help": "Note:\nThis is a Foreign Key to `patients.id`.<fk table='patients' column='id'/>",
+                  "name": "patient_id",
+                  "type": "text",
+                  "label": "patient_id",
+                  "options": null,
+                  "required": false
+                },
+                {
+                  "help": "",
+                  "name": "service_type",
+                  "type": "text",
+                  "label": "service_type",
+                  "options": null,
+                  "required": false
+                },
+                {
+                  "help": "",
+                  "name": "preferred_date",
+                  "type": "date",
+                  "label": "preferred_date",
+                  "options": null,
+                  "required": false
+                },
+                {
+                  "help": "",
+                  "name": "intake_notes",
+                  "type": "text",
+                  "label": "intake_notes",
+                  "options": null,
+                  "required": false
+                },
+                {
+                  "help": "Defaults to pending. ",
+                  "name": "status",
+                  "type": "select",
+                  "label": "status",
+                  "options": [
+                    {
+                      "label": "pending",
+                      "value": "pending"
+                    },
+                    {
+                      "label": "confirmed",
+                      "value": "confirmed"
+                    },
+                    {
+                      "label": "completed",
+                      "value": "completed"
+                    },
+                    {
+                      "label": "cancelled",
+                      "value": "cancelled"
+                    }
+                  ],
+                  "required": false
+                },
+                {
+                  "help": "Defaults to timezone('utc'::text, now()). ",
+                  "name": "created_at",
+                  "type": "text",
+                  "label": "created_at",
+                  "options": null,
+                  "required": false
+                }
+              ]
+            },
+            "status": {
+              "mode": "chose",
+              "label": "pending"
+            }
+          },
+          "parameters": {
+            "__IMTCONN__": {
+              "data": {
+                "scoped": "true",
+                "connection": "supabase"
+              },
+              "label": "Phoebe's Supabase connection"
+            }
+          }
+        },
+        "designer": {
+          "x": 600,
+          "y": 0
+        }
+      },
+      "parameters": {
+        "__IMTCONN__": 10503596
+      }
+    },
+    {
+      "id": 5,
+      "mapper": {
+        "_method": "compact",
+        "properties": [
+          {
+            "key": "email",
+            "value": "{{lower(trim(2.payload.data.patient_email))}}"
+          },
+          {
+            "key": "firstname",
+            "value": "{{first(split(trim(2.payload.data.patient_name); \" \"))}}"
+          },
+          {
+            "key": "lastname",
+            "value": "{{join(slice(split(trim(2.payload.data.patient_name); \" \"); 1); \" \")}}"
+          },
+          {
+            "key": "phone",
+            "value": "{{2.payload.data.patient_phone}}"
+          },
+          {
+            "key": "state",
+            "value": "{{2.payload.data.patient_state}}"
+          }
+        ],
+        "swapPrimaryEmail": false,
+        "parseCustomFields": true
+      },
+      "module": "hubspotcrm:upsertAContact",
+      "version": 2,
+      "metadata": {
+        "restore": {
+          "expect": {
+            "_method": {
+              "mode": "chose",
+              "label": "Compact"
+            },
+            "properties": {
+              "mode": "chose",
+              "items": [
+                {
+                  "key": {
+                    "mode": "chose",
+                    "label": "Email"
+                  }
+                },
+                {
+                  "key": {
+                    "mode": "chose",
+                    "label": "First Name"
+                  }
+                },
+                {
+                  "key": {
+                    "mode": "chose",
+                    "label": "Last Name"
+                  }
+                },
+                {
+                  "key": {
+                    "mode": "chose",
+                    "label": "Phone Number"
+                  }
+                },
+                {
+                  "key": {
+                    "mode": "chose",
+                    "label": "State/Region"
+                  }
+                }
+              ]
+            },
+            "swapPrimaryEmail": {
+              "mode": "chose"
+            },
+            "parseCustomFields": {
+              "mode": "chose"
+            }
+          },
+          "parameters": {
+            "__IMTCONN__": {
+              "data": {
+                "scoped": "true",
+                "connection": "hubspotcrm"
+              },
+              "label": "Phoebe's HubSpot CRM connection"
+            }
+          }
+        },
+        "designer": {
+          "x": 900,
+          "y": 0
+        }
+      },
+      "parameters": {
+        "__IMTCONN__": 10504979
+      },
+      "onerror": [
+        {
+          "id": 6,
+          "module": "builtin:Ignore",
+          "version": 1,
+          "metadata": {
+            "designer": {
+              "x": 1200,
+              "y": 150
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "metadata": {
+    "instant": true,
+    "version": 1,
+    "designer": {
+      "orphans": []
+    },
+    "scenario": {
+      "dlq": false,
+      "slots": null,
+      "dataloss": false,
+      "maxErrors": 3,
+      "autoCommit": true,
+      "roundtrips": 1,
+      "sequential": false,
+      "confidential": false,
+      "freshVariables": false,
+      "autoCommitTriggerLast": true
+    }
+  }
+}
